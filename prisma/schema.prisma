@@ -1,0 +1,252 @@
+// ============================================================
+// DK-Launchpad — Base SaaS Prisma Schema
+// 10 platform models: Organization, UserProfile, RBAC,
+// Departments, Notifications, ActivityLog
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ── Enums ──
+
+enum notification_type {
+  status_change
+  system
+  // TODO: Add domain-specific notification types here
+}
+
+enum notification_reference_type {
+  // TODO: Add reference types for your domain entities
+  // e.g.: subscription, request, invoice
+  system
+}
+
+enum activity_action {
+  created
+  updated
+  deleted
+  logged_in
+  logged_out
+  // TODO: Add domain-specific actions (status_changed, approved, etc.)
+}
+
+enum activity_entity_type {
+  user
+  role
+  department
+  organization
+  // TODO: Add your domain entity types here
+}
+
+enum user_theme {
+  light
+  dark
+}
+
+enum org_plan {
+  free
+  paid
+}
+
+// ── Platform Tables ──
+
+model Organization {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String
+  slug      String    @unique
+  logoUrl   String?   @map("logo_url")
+  plan      org_plan  @default(free)
+  isActive  Boolean   @default(true) @map("is_active")
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime? @map("updated_at") @db.Timestamptz
+
+  userProfiles UserProfile[]
+  departments  Department[]
+  roles        Role[]
+  userRoles    UserRole[]
+  notifications Notification[]
+  activityLog  ActivityLog[]
+
+  @@map("organizations")
+}
+
+model UserProfile {
+  id             String     @id @db.Uuid // References auth.users(id) — FK managed by Supabase Auth
+  email          String
+  fullName       String     @map("full_name")
+  avatarUrl      String?    @map("avatar_url")
+  theme          user_theme @default(light)
+  homePage       String     @default("/dashboard") @map("home_page")
+  isSuperAdmin   Boolean    @default(false) @map("is_super_admin")
+  organizationId String     @map("organization_id") @db.Uuid
+  isActive       Boolean    @default(true) @map("is_active")
+  createdAt      DateTime   @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime?  @map("updated_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  createdDepartments Department[] @relation("DepartmentCreatedBy")
+  updatedDepartments Department[] @relation("DepartmentUpdatedBy")
+  createdRoles       Role[]       @relation("RoleCreatedBy")
+  updatedRoles       Role[]       @relation("RoleUpdatedBy")
+  createdUserRoles   UserRole[]   @relation("UserRoleCreatedBy")
+  userRoles          UserRole[]   @relation("UserRoleUser")
+  notifications      Notification[]
+  activityLog        ActivityLog[]
+
+  @@index([organizationId], map: "idx_user_profiles_org")
+  @@map("user_profiles")
+}
+
+// ── Tenant Tables ──
+
+model Department {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  name           String
+  isActive       Boolean   @default(true) @map("is_active")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  createdBy      String?   @map("created_by") @db.Uuid
+  updatedAt      DateTime? @map("updated_at") @db.Timestamptz
+  updatedBy      String?   @map("updated_by") @db.Uuid
+
+  organization        Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdByUser       UserProfile?       @relation("DepartmentCreatedBy", fields: [createdBy], references: [id])
+  updatedByUser       UserProfile?       @relation("DepartmentUpdatedBy", fields: [updatedBy], references: [id])
+  userRoleDepartments UserRoleDepartment[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId], map: "idx_departments_org")
+  @@map("departments")
+}
+
+model Permission {
+  id          String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String
+  groupName   String  @map("group_name")
+  description String?
+  sortOrder   Int     @default(0) @map("sort_order")
+
+  rolePermissions RolePermission[]
+
+  @@unique([groupName, name])
+  @@map("permissions")
+}
+
+model Role {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  name           String
+  description    String?
+  isSystem       Boolean   @default(false) @map("is_system")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  createdBy      String?   @map("created_by") @db.Uuid
+  updatedAt      DateTime? @map("updated_at") @db.Timestamptz
+  updatedBy      String?   @map("updated_by") @db.Uuid
+
+  organization    Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdByUser   UserProfile?     @relation("RoleCreatedBy", fields: [createdBy], references: [id])
+  updatedByUser   UserProfile?     @relation("RoleUpdatedBy", fields: [updatedBy], references: [id])
+  rolePermissions RolePermission[]
+  userRoles       UserRole[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId], map: "idx_roles_org")
+  @@map("roles")
+}
+
+model RolePermission {
+  id           String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  roleId       String @map("role_id") @db.Uuid
+  permissionId String @map("permission_id") @db.Uuid
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model UserRole {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  roleId         String   @map("role_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+  createdBy      String?  @map("created_by") @db.Uuid
+
+  organization        Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user                UserProfile          @relation("UserRoleUser", fields: [userId], references: [id], onDelete: Cascade)
+  role                Role                 @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  createdByUser       UserProfile?         @relation("UserRoleCreatedBy", fields: [createdBy], references: [id])
+  userRoleDepartments UserRoleDepartment[]
+
+  @@unique([userId, roleId])
+  @@index([userId], map: "idx_user_roles_user")
+  @@index([roleId], map: "idx_user_roles_role")
+  @@map("user_roles")
+}
+
+model UserRoleDepartment {
+  id           String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userRoleId   String @map("user_role_id") @db.Uuid
+  departmentId String @map("department_id") @db.Uuid
+
+  userRole   UserRole   @relation(fields: [userRoleId], references: [id], onDelete: Cascade)
+  department Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  @@unique([userRoleId, departmentId])
+  @@map("user_role_departments")
+}
+
+// ── Notifications ──
+
+model Notification {
+  id             String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String                       @map("organization_id") @db.Uuid
+  userId         String                       @map("user_id") @db.Uuid
+  type           notification_type
+  title          String
+  body           String?
+  referenceType  notification_reference_type? @map("reference_type")
+  referenceId    String?                      @map("reference_id") @db.Uuid
+  isRead         Boolean                      @default(false) @map("is_read")
+  readAt         DateTime?                    @map("read_at") @db.Timestamptz
+  createdAt      DateTime                     @default(now()) @map("created_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         UserProfile  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead], map: "idx_notifications_user")
+  @@map("notifications")
+}
+
+// ── Activity Log ──
+
+model ActivityLog {
+  id             String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String               @map("organization_id") @db.Uuid
+  userId         String?              @map("user_id") @db.Uuid
+  action         activity_action
+  entityType     activity_entity_type @map("entity_type")
+  entityId       String               @map("entity_id") @db.Uuid
+  entityName     String?              @map("entity_name")
+  changes        Json?
+  metadata       Json?
+  createdAt      DateTime             @default(now()) @map("created_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         UserProfile? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId], map: "idx_activity_log_org")
+  @@index([entityType, entityId], map: "idx_activity_log_entity")
+  @@map("activity_log")
+}
