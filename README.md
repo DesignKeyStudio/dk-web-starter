@@ -1,29 +1,38 @@
-# DK-Launchpad
+# dk-web-starter
 
 A production-grade Next.js SaaS starter template by DesignKey Studio.
 
-## Quick Start
+## Quick start
 
 ```bash
-# 1. Clone or use GitHub template
-git clone https://github.com/designkey-studio/dk-launchpad.git my-project
+# 1. Use as GitHub template, or clone:
+git clone https://github.com/DesignKeyStudio/dk-web-starter.git my-project
 cd my-project
 
-# 2. Run setup wizard (renames project, sets brand colors, installs deps)
-bash setup.sh
-
-# 3. Fill in your Supabase credentials in .env.local and prisma/.env
-
-# 4. Run database migration + seed
-npx prisma migrate dev --name init
-npx prisma db seed
-
-# 5. Start dev server
-npm run dev
-# → http://localhost:3000
+# 2. Open Claude Code and prompt:
+#    "Set up a new project from this starter using INSTALL.md"
+#
+# Claude will interview you (product info, design preferences) and bootstrap
+# everything: fills templates, installs deps, runs migrations, seeds the DB.
 ```
 
+Prefer manual setup? See [INSTALL.md](./INSTALL.md) — the same playbook, readable as a checklist.
+
 Default seed credentials: `admin@example.com` / `AdminPass123!`
+
+---
+
+## Docs structure
+
+| File | Purpose |
+|------|---------|
+| [CLAUDE.md](./CLAUDE.md) | Orientation, commands, commit conventions, doc-update discipline |
+| [PRODUCT.md](./PRODUCT.md) | What the product is, target user, scope, glossary |
+| [DESIGN.md](./DESIGN.md) | Brand, typography, UI patterns, accessibility floor |
+| [CODEMAP.md](./CODEMAP.md) | Project tree, architecture, "where to add what" |
+| [INSTALL.md](./INSTALL.md) | Claude Code setup playbook (read once, then delete) |
+
+After running setup, `INSTALL.md` and `_defaults/` can be deleted from your downstream project.
 
 ---
 
@@ -44,27 +53,7 @@ Default seed credentials: `admin@example.com` / `AdminPass123!`
 
 ---
 
-## Architecture
-
-### Three-Layer Pattern (Services → Actions → UI)
-
-```
-UI Components / React Query hooks
-        ↓ import from
-Server Actions (src/lib/actions/)        ← "use server", auth only
-        ↓ delegate to
-Services (src/lib/services/)             ← pure Prisma business logic
-        ↓
-Prisma Client → PostgreSQL
-```
-
-- **Services** — pure Prisma business logic, no Next.js imports. Portable to any runtime.
-- **Actions** — thin `"use server"` wrappers. Call `getAuthContext()` for auth, delegate to services.
-- **UI** — React Query hooks call actions, Zustand stores hold client state.
-
----
-
-## What's Included
+## What's included
 
 ### Auth
 - Login (email + password)
@@ -73,132 +62,53 @@ Prisma Client → PostgreSQL
 - Session management via Supabase Auth + Next.js middleware
 - RBAC permission checks via `useAuthStore().hasPermission()`
 
-### Platform Shell
+### Platform shell
 - Collapsible sidebar with permission-gated nav items
 - App header (theme toggle, notification bell, user + org menu)
 - Dark/light mode (OKLCh tokens, persisted to sessionStorage)
 - Bootstrap pattern (Zustand hydrated from DB on first load)
 
-### Settings Pages
-- **Account** — user profile, password, theme
-- **Organization** — org name, logo, plan
-- **Users** — invite, deactivate, assign roles
-- **Roles** — create/edit roles, assign permissions
-- **Departments** — manage team departments
-- **Activity Log** — audit trail
-- **Billing** — skeleton (connect your billing provider)
-- **Integrations** — skeleton (connect third-party services)
+### Settings pages
+Account, Organization, Users, Roles, Departments, Activity Log, Billing (skeleton), Integrations (skeleton).
 
 ### Components
 - All **shadcn/ui** primitives (~47 components)
 - All **ReUI** components (data-grid, badge, timeline, stepper, filters, autocomplete, alert, date-selector)
-- **DataTable** — sortable headers, column visibility
-- **KpiCard**, **PageHeader**, **UserAvatar**, **DetailRow** — generic UI building blocks
+- Generic building blocks: DataTable, KpiCard, PageHeader, UserAvatar, DetailRow
 
 ---
 
-## Adding Your Domain
+## Architecture
 
-When you're ready to add your product's core features:
+Three-layer pattern (Services → Actions → UI). See [CODEMAP.md](./CODEMAP.md) for the full tree, layer responsibilities, and the "where to add what" decision table.
 
-### 1. Extend the Prisma schema
-
-Add your models to `prisma/schema.prisma`. Follow the patterns in existing models:
-- `organizationId` on every tenant model
-- `@map("snake_case")` for all fields
-- `@@index` on FK columns
-
-```bash
-npx prisma migrate dev --name add-subscriptions
-npx prisma generate
 ```
-
-### 2. Add a service
-
-Create `src/lib/services/your-service.ts`:
-
-```typescript
-import { prisma } from "@/lib/prisma";
-import type { YourType } from "@/types";
-
-export async function findAll(organizationId: string): Promise<YourType[]> {
-  const rows = await prisma.yourModel.findMany({ where: { organizationId } });
-  return rows.map(toYourType);
-}
+UI / React Query hooks
+        ↓
+Server Actions (src/lib/actions/)    ← "use server", auth wrappers
+        ↓
+Services (src/lib/services/)         ← pure Prisma business logic
+        ↓
+Prisma → PostgreSQL
 ```
-
-### 3. Add server actions
-
-In `src/lib/actions/queries.ts` and `mutations.ts`:
-
-```typescript
-export async function fetchYourThings() {
-  const { organizationId } = await getAuthContext();
-  return yourService.findAll(organizationId);
-}
-```
-
-### 4. Add React Query hooks
-
-In `src/lib/queries/keys.ts`:
-```typescript
-yourThings: ["your-things"] as const,
-```
-
-In `src/lib/queries/hooks.ts`:
-```typescript
-export function useYourThingsQuery() {
-  return useQuery({ queryKey: queryKeys.yourThings, queryFn: fetchYourThings });
-}
-```
-
-### 5. Add permissions
-
-In `src/lib/constants/permissions.ts`, add your groups:
-```typescript
-{ name: "View", groupName: "YourFeature" },
-{ name: "Edit", groupName: "YourFeature" },
-```
-
-Update `ROLE_DEFINITIONS` to grant these to appropriate roles.
-
-### 6. Add sidebar nav
-
-In `src/lib/sidebar-nav.ts`:
-```typescript
-{
-  title: "Your Feature",
-  href: "/your-feature",
-  icon: YourIcon,
-  permGroup: "YourFeature",
-  permAction: "View",
-},
-```
-
-### 7. Create pages
-
-Add `src/app/(platform)/your-feature/page.tsx` — use `DataTable` + `useYourThingsQuery()`.
 
 ---
 
-## Brand Customization
+## Brand customization
 
 All design tokens are in `src/app/globals.css`. Look for `/* BRAND: customize */` comments.
 
-The key tokens to change:
+Key tokens to change:
 
 ```css
-/* Primary action color */
---primary: oklch(0.45 0.16 270);   /* hue: 270=indigo, 300=purple, 220=blue */
-
-/* Focus ring */
+--primary: oklch(0.45 0.16 270);        /* hue: 270=indigo, 300=purple, 220=blue */
 --ring: oklch(0.45 0.16 270);
-
-/* Sidebar active item highlight */
 --sidebar-accent: oklch(0.45 0.16 270);
 ```
 
-OKLCh format: `oklch(lightness chroma hue)` where lightness=0–1, chroma=0–0.4, hue=0–360.
+OKLCh format: `oklch(lightness chroma hue)` where `lightness=0–1`, `chroma=0–0.4`, `hue=0–360`.
+
+Document any brand rules in [DESIGN.md](./DESIGN.md) so the rest of the codebase follows them.
 
 ---
 
@@ -206,7 +116,7 @@ OKLCh format: `oklch(lightness chroma hue)` where lightness=0–1, chroma=0–0.
 
 ```bash
 npm run dev           # Dev server (Turbopack)
-npm run build         # Production build (prisma generate + storybook + next)
+npm run build         # Production build
 npm run lint          # ESLint
 npm run storybook     # Storybook on port 6006
 npm run test          # Vitest integration tests
@@ -216,24 +126,25 @@ npx prisma studio     # Visual DB browser
 
 ---
 
-## Environment Variables
+## Environment variables
 
-See `.env.example` for the full list. You need:
-- `DATABASE_URL` — Supabase pooler connection (port 6543)
+See `.env.example` for the full list. Required:
+
+- `DATABASE_URL` — Supabase pooler connection (port 6543, with `?pgbouncer=true`)
 - `DIRECT_URL` — Supabase direct connection (port 5432)
-- `NEXT_PUBLIC_SUPABASE_URL` — Supabase project URL
-- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY` — Anon key
-- `SUPABASE_SERVICE_ROLE_KEY` — Service role key
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
 
 Both `.env.local` and `prisma/.env` need these values (Prisma reads from `prisma/.env`).
 
 ---
 
-## Verification Checklist
+## Verification checklist
 
 1. `npm run build` passes with zero errors
 2. Login → `/dashboard` shows data from PostgreSQL
 3. Register → creates org + user + 4 roles in one DB transaction
-4. Settings → Users, Roles, Departments all functional
+4. Settings pages all functional
 5. Theme toggle persists across page refreshes
-6. Permission checks: Admin sees all settings, Viewer sees less
+6. Permission gating works (Admin sees all settings, Viewer sees less)
