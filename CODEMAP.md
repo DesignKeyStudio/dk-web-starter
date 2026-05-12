@@ -2,6 +2,8 @@
 
 > Project structure map, optimized for AI agents and humans navigating this codebase.
 > **Update this file in the same commit that adds, renames, or removes services, actions, hooks, queries, component categories, routes, or top-level folders.** Without this, the map rots and future Claude sessions waste tokens re-discovering structure.
+>
+> Companion docs: [CLAUDE.md](./CLAUDE.md) · [COMPONENT.md](./COMPONENT.md) (UI components catalog) · [DESIGN.md](./DESIGN.md) · [STACK.md](./STACK.md)
 
 ## Where to add what
 
@@ -15,9 +17,9 @@
 | Sidebar nav item | `src/lib/sidebar-nav.ts` | Configure label, icon, route, permission |
 | New protected page | `src/app/(platform)/<route>/page.tsx` | Wire to sidebar nav above |
 | New public page | `src/app/(auth)/<route>/page.tsx` | Add to middleware allow-list if needed |
-| New UI primitive | `src/components/ui/` (shadcn) or `src/components/reui/` (ReUI) | Don't edit existing primitives |
-| Generic app component | `src/components/custom/` | e.g., KpiCard, PageHeader |
-| Layout chrome | `src/components/layout/` | e.g., AppSidebar, AppHeader |
+| New UI primitive | `src/components/ui/` (shadcn) or `src/components/reui/` (ReUI) | Don't edit existing primitives. Add entry to `COMPONENT.md` |
+| Generic app component | `src/components/custom/` | e.g., KpiCard, PageHeader. Add entry to `COMPONENT.md` |
+| Layout chrome | `src/components/layout/` | e.g., AppSidebar, AppHeader. Add entry to `COMPONENT.md` |
 | Zod validation schema | `src/lib/validations/<context>.ts` | Used by React Hook Form |
 | Brand/styling token | `src/lib/brand.ts` or `src/app/globals.css` | Also document in DESIGN.md |
 

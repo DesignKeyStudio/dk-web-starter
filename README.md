@@ -27,9 +27,11 @@ Default seed credentials: `admin@example.com` / `AdminPass123!`
 | File | Purpose |
 |------|---------|
 | [CLAUDE.md](./CLAUDE.md) | Orientation, commands, commit conventions, doc-update discipline |
-| [PRODUCT.md](./PRODUCT.md) | What the product is, target user, scope, glossary |
-| [DESIGN.md](./DESIGN.md) | Brand, typography, UI patterns, accessibility floor |
+| [PRODUCT.md](./PRODUCT.md) | What the product is, target user, scope, glossary (user-initiated only) |
+| [DESIGN.md](./DESIGN.md) | Brand, typography, layout, components — Google Stitch DESIGN.md format |
+| [COMPONENT.md](./COMPONENT.md) | Catalog of every UI component shipped with the project |
 | [CODEMAP.md](./CODEMAP.md) | Project tree, architecture, "where to add what" |
+| [STACK.md](./STACK.md) | Database, auth, framework choices captured during setup |
 | [INSTALL.md](./INSTALL.md) | Claude Code setup playbook (read once, then delete) |
 
 After running setup, `INSTALL.md` and `_defaults/` can be deleted from your downstream project.

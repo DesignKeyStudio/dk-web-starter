@@ -9,8 +9,10 @@
 | File | Read when working on... |
 |------|------------------------|
 | [PRODUCT.md](./PRODUCT.md) | Features, scope, user-facing decisions, domain terms |
-| [DESIGN.md](./DESIGN.md) | UI, styling, components, layout, accessibility |
+| [DESIGN.md](./DESIGN.md) | UI, styling, design tokens, layout, accessibility (Google Stitch format) |
+| [COMPONENT.md](./COMPONENT.md) | Picking, adding, or modifying UI components |
 | [CODEMAP.md](./CODEMAP.md) | Navigating the codebase or adding new files/services |
+| [STACK.md](./STACK.md) | Understanding the database/auth/framework choices |
 
 ## Tech stack
 
@@ -55,8 +57,11 @@ Format: `prefix: short description` (lowercase prefix, imperative mood, under 72
 When you add, rename, or remove code, you **must** update the companion docs in the same commit:
 
 - **Added/renamed/removed** a service, action, hook, query, component category, route, or top-level folder → update `CODEMAP.md`
-- **Added** a UI pattern, design token, or styling rule that other code should follow → update `DESIGN.md`
-- **Changed** product scope, target user, key feature set, or domain term → update `PRODUCT.md`
+- **Added/renamed/removed a component, or added a new variant** → update `COMPONENT.md`
+- **Added** a UI pattern, design token, or styling rule that other code should follow → update `DESIGN.md` (keep YAML front matter and prose body in sync)
+- **Changed** the database, auth provider, or major framework version → update `STACK.md`
+
+**PRODUCT.md is user-initiated only.** Do **not** edit `PRODUCT.md` unless the user explicitly asks. Products evolve and the file is intentionally lean — automated rewrites cause drift.
 
 Treat doc updates as part of the change, not an afterthought. The cost of skipping is real: future Claude sessions waste tokens re-discovering structure that the maps should have captured.
 
