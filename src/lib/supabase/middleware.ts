@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { isPrototypeMode } from "./mock-client";
 
 /** Routes accessible without authentication (auth pages + OAuth callback). */
 const PUBLIC_ROUTES = ["/login", "/register", "/forgot-password", "/reset-password", "/auth/callback"];
@@ -14,6 +15,16 @@ function redirectTo(request: NextRequest, pathname: string): NextResponse {
 }
 
 export async function updateSession(request: NextRequest): Promise<NextResponse> {
+  const pathname = request.nextUrl.pathname;
+
+  // PROTOTYPE_MODE: demo user is always "logged in". Skip Supabase entirely.
+  if (isPrototypeMode()) {
+    if (AUTH_ONLY_ROUTES.some((route) => pathname.startsWith(route))) {
+      return redirectTo(request, "/dashboard");
+    }
+    return NextResponse.next({ request });
+  }
+
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(
@@ -38,8 +49,6 @@ export async function updateSession(request: NextRequest): Promise<NextResponse>
   );
 
   const { data: { user } } = await supabase.auth.getUser();
-
-  const pathname = request.nextUrl.pathname;
 
   // Unauthenticated user on protected route -> login
   if (!user && !PUBLIC_ROUTES.some((route) => pathname.startsWith(route))) {

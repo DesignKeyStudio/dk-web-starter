@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "predev": "node scripts/prototype-bootstrap.mjs",
     "dev": "next dev --turbopack",
     "build": "prisma generate && bash scripts/build-storybook.sh && next build",
     "start": "next start",

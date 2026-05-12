@@ -1,6 +1,11 @@
 import { createBrowserClient } from "@supabase/ssr";
+import { createMockClient, isPrototypeMode } from "./mock-client";
 
 export function createClient() {
+  if (isPrototypeMode()) {
+    return createMockClient();
+  }
+
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY;
 

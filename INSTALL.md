@@ -178,25 +178,45 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY="<your Supabase anon key>"
 SUPABASE_SERVICE_ROLE_KEY="<your Supabase service role>"
 ```
 
-### Path 4: In-memory SQLite + mocked auth (prototype only)
+### Path 4: Ephemeral SQLite + mocked auth (prototype only)
 
-This is the most invasive path. Pre-conditions: `appType=prototype`. If the user picked `in-memory` with `appType=end-to-end`, override to `prototype` and inform them.
+Pre-conditions: `appType=prototype`. If the user picked `in-memory` with `appType=end-to-end`, override to `prototype` and inform them.
 
 **Schema** — apply the same edits as Path 3 (sqlite provider, scan for incompatible types).
 
 **Edit `.env.example`** (and `.env`):
 
 ```
-DATABASE_URL="file::memory:?cache=shared"
-PROTOTYPE_MODE=true
-# Supabase keys not needed in prototype mode — auth is mocked
+DATABASE_URL="file:./prisma/prototype.db"
+NEXT_PUBLIC_PROTOTYPE_MODE=true
+# Supabase keys not needed in prototype mode — auth is mocked.
 ```
 
-**Mock auth files** — these ship with the starter at `src/lib/supabase/client-mock.ts` and `src/lib/supabase/server-mock.ts`. They export the same surface as the real clients but return a fixed demo user (see source for the user shape). They activate when `PROTOTYPE_MODE=true`.
+> **About "in-memory"**: Prisma's true `file::memory:` URL is per-connection — Next.js server, Studio, and tooling each see different DBs. The prototype uses a file at `prisma/prototype.db` that gets **deleted on every `npm run dev`** by `scripts/prototype-bootstrap.mjs`. Same "fresh on every restart" semantics, no connection-sharing footguns.
 
-**Confirm the wiring** — `src/lib/supabase/client.ts` and `server.ts` should already check `process.env.PROTOTYPE_MODE === 'true'` and re-export from the mock files. If they don't, the prototype path isn't implemented yet in the starter — surface this and stop with a clear message: *"Prototype mode requires `src/lib/supabase/{client,server}.ts` to check PROTOTYPE_MODE and re-export from `client-mock`/`server-mock`. This isn't wired up in your version of the starter. Please run setup with one of the real DB paths instead."*
+**Mock auth wiring** — the starter ships with:
 
-**Boot bootstrap** — for in-memory mode, the DB lives only in process memory. A script at `scripts/prototype-bootstrap.mjs` runs `prisma db push --skip-generate` and the seed on each `npm run dev` boot. Verify the script exists; if not, surface the same kind of message as above.
+- `src/lib/supabase/mock-client.ts` — the mock factory (exports `createMockClient`, `isPrototypeMode`, `PROTOTYPE_DEMO_USER`)
+- `src/lib/supabase/client.ts`, `server.ts`, `admin.ts` — all check `isPrototypeMode()` and return the mock client when true
+- `src/lib/supabase/middleware.ts` — skips Supabase entirely in prototype mode; treats demo user as always logged in
+
+The demo user constant is `PROTOTYPE_DEMO_USER` in `mock-client.ts`. Its `id` (`00000000-0000-4000-8000-000000000001`) and `email` (`demo@prototype.local`) are stable so `prisma/seed.ts` can pre-create a UserProfile row referencing the same ID.
+
+**Seed integration** — for the demo user to actually load in the platform shell, `prisma/seed.ts` should create the admin UserProfile with `supabaseAuthId` matching `PROTOTYPE_DEMO_USER.id`. If the existing seed hardcodes a different ID, surface this to the user and ask whether to update the seed to use the demo user constant.
+
+**Boot bootstrap** — `scripts/prototype-bootstrap.mjs` runs as a `predev` hook (configured in `package.json`). It:
+
+1. Reads `NEXT_PUBLIC_PROTOTYPE_MODE`; no-ops if not `"true"`
+2. Deletes `prisma/prototype.db` if it exists (fresh start)
+3. Runs `npx prisma db push --skip-generate --accept-data-loss`
+4. Runs `npx prisma db seed`
+
+Verify these starter files exist before declaring Path 4 setup complete:
+- `src/lib/supabase/mock-client.ts`
+- `scripts/prototype-bootstrap.mjs`
+- `predev` script in `package.json`
+
+If any are missing, the starter's version doesn't support Path 4 — surface this and offer Path 3 (SQLite end-to-end + user-provided Supabase Auth) as the closest alternative.
 
 ---
 

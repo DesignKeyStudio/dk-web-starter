@@ -1,10 +1,17 @@
 import { createClient } from "@supabase/supabase-js";
+import { createMockClient, isPrototypeMode } from "./mock-client";
 
 /**
  * Server-only Supabase client with service role key.
  * Bypasses RLS — use ONLY in Server Actions / API routes.
+ *
+ * In PROTOTYPE_MODE, returns a mocked client (no service role needed).
  */
 export function createAdminClient() {
+  if (isPrototypeMode()) {
+    return createMockClient();
+  }
+
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 

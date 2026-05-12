@@ -66,12 +66,13 @@ src/
 │   │   ├── queries.ts                # Auth wrapper → services (fetch functions)
 │   │   ├── mutations.ts              # Auth wrapper → services (mutations)
 │   │   └── mappers.ts                # Date/Decimal/junction-to-ID helpers
-│   ├── supabase/                     # Supabase Auth only
-│   │   ├── client.ts                 # Browser client (auth)
+│   ├── supabase/                     # Supabase Auth only (real + mocked)
+│   │   ├── client.ts                 # Browser client (auth) — checks NEXT_PUBLIC_PROTOTYPE_MODE
 │   │   ├── server.ts                 # Server client (auth cookies)
 │   │   ├── admin.ts                  # Service role (auth admin ops)
 │   │   ├── middleware.ts             # Session refresh + route guards
-│   │   └── server-user.ts            # getPlatformServerUser()
+│   │   ├── server-user.ts            # getPlatformServerUser()
+│   │   └── mock-client.ts            # PROTOTYPE_MODE auth mock + demo user constant
 │   ├── stores/                       # Zustand stores (sessionStorage persist)
 │   │   ├── index.ts                  # Store exports
 │   │   └── auth-store.ts             # Users, orgs, roles, permissions, currentUserId
