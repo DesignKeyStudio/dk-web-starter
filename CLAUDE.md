@@ -70,6 +70,7 @@ Treat doc updates as part of the change, not an afterthought. The cost of skippi
 Project-level skills live in `.claude/skills/`. They auto-invoke based on their `description` frontmatter.
 
 - `.claude/skills/update-codemap/SKILL.md` — keeps `CODEMAP.md` in sync with the file tree. Triggers on file additions, renames, removals, or when the user asks to "update / refresh / sync CODEMAP".
+- `.claude/skills/update-component/SKILL.md` — keeps `COMPONENT.md` in sync with `src/components/`. Triggers on component additions, renames, removals, variant changes, or when the user asks to "update / refresh / sync COMPONENT" or "catalog components".
 
 Add new skills by creating `.claude/skills/<skill-name>/SKILL.md` with YAML frontmatter (`name`, `description`) plus a markdown body of instructions.
 
