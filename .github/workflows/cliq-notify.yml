@@ -1,0 +1,88 @@
+name: Cliq Notifications
+
+# Posts GitHub events into a Zoho Cliq channel.
+# Configure per repo:
+#   - secret   CLIQ_WEBHOOK_TOKEN  = Bob's Cliq incoming webhook token (zapikey)
+#   - variable CLIQ_CHANNEL        = target channel unique_name (e.g. ghdksinternal)
+# The URL is assembled at runtime: never store the full URL.
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    types: [opened, closed, reopened, ready_for_review]
+  issues:
+    types: [opened, closed, reopened]
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Cliq notification
+        env:
+          CLIQ_WEBHOOK_TOKEN: ${{ secrets.CLIQ_WEBHOOK_TOKEN }}
+          CLIQ_CHANNEL: ${{ vars.CLIQ_CHANNEL }}
+          EVENT_NAME: ${{ github.event_name }}
+          ACTION: ${{ github.event.action }}
+          REPO: ${{ github.repository }}
+          ACTOR: ${{ github.actor }}
+          REF: ${{ github.ref_name }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_NUM: ${{ github.event.pull_request.number }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_BRANCH: ${{ github.event.pull_request.head.ref }}
+          PR_BASE: ${{ github.event.pull_request.base.ref }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_NUM: ${{ github.event.issue.number }}
+          ISSUE_URL: ${{ github.event.issue.html_url }}
+          REL_NAME: ${{ github.event.release.name }}
+          REL_TAG: ${{ github.event.release.tag_name }}
+          REL_URL: ${{ github.event.release.html_url }}
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
+          COMPARE_URL: ${{ github.event.compare }}
+        run: |
+          if [ -z "$CLIQ_WEBHOOK_TOKEN" ] || [ -z "$CLIQ_CHANNEL" ]; then
+            echo "CLIQ_WEBHOOK_TOKEN or CLIQ_CHANNEL not set — skipping notification."
+            exit 0
+          fi
+          CLIQ_WEBHOOK_URL="https://cliq.zoho.com/api/v2/channelsbyname/${CLIQ_CHANNEL}/message?zapikey=${CLIQ_WEBHOOK_TOKEN}"
+
+          # PR description: handle null/empty, strip CR, truncate to ~4000 chars
+          PR_BODY_SAFE="$PR_BODY"
+          if [ -z "$PR_BODY_SAFE" ] || [ "$PR_BODY_SAFE" = "null" ]; then
+            PR_BODY_SAFE="_(no description)_"
+          else
+            PR_BODY_SAFE="$(printf '%s' "$PR_BODY_SAFE" | tr -d '\r')"
+            if [ "${#PR_BODY_SAFE}" -gt 4000 ]; then
+              PR_BODY_SAFE="$(printf '%s\n…(truncated)' "${PR_BODY_SAFE:0:4000}")"
+            fi
+          fi
+
+          case "$EVENT_NAME" in
+            push)
+              MSG=$(printf '🔨 *Push* to `%s` on `%s` by *%s*\n%s\n%s' "$REPO" "$REF" "$ACTOR" "$COMMIT_MSG" "$COMPARE_URL") ;;
+            pull_request)
+              MSG=$(printf '🔀 *Pull Request %s* in `%s` by *%s*\n#%s: %s\n`%s` → `%s`\n%s\n\n%s' "$ACTION" "$REPO" "$ACTOR" "$PR_NUM" "$PR_TITLE" "$PR_BRANCH" "$PR_BASE" "$PR_URL" "$PR_BODY_SAFE") ;;
+            issues)
+              MSG=$(printf '🐛 *Issue %s* in `%s` by *%s*\n#%s: %s\n%s' "$ACTION" "$REPO" "$ACTOR" "$ISSUE_NUM" "$ISSUE_TITLE" "$ISSUE_URL") ;;
+            release)
+              MSG=$(printf '🚀 *Release published* in `%s` by *%s*\n%s (%s)\n%s' "$REPO" "$ACTOR" "$REL_NAME" "$REL_TAG" "$REL_URL") ;;
+            workflow_dispatch)
+              MSG=$(printf '✅ *Test notification* from `%s` — Cliq integration is working. Triggered by *%s*.' "$REPO" "$ACTOR") ;;
+            *)
+              MSG=$(printf 'ℹ️ Event *%s* in `%s` by *%s*.' "$EVENT_NAME" "$REPO" "$ACTOR") ;;
+          esac
+
+          jq -n --arg text "$MSG" '{text: $text}' > payload.json
+          echo "Posting to Cliq..."
+          HTTP_CODE=$(curl -sS -o response.txt -w "%{http_code}" -X POST -H "Content-Type: application/json" -d @payload.json "$CLIQ_WEBHOOK_URL")
+          echo "HTTP $HTTP_CODE"
+          cat response.txt
+          if [ "$HTTP_CODE" -ge 400 ]; then
+            echo "Cliq webhook returned an error."
+            exit 1
+          fi
