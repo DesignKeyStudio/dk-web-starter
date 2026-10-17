@@ -3,7 +3,7 @@
 > Project structure map, optimized for AI agents and humans navigating this codebase.
 > **Update this file in the same commit that adds, renames, or removes services, actions, hooks, queries, component categories, routes, or top-level folders.** Without this, the map rots and future Claude sessions waste tokens re-discovering structure.
 >
-> Companion docs: [CLAUDE.md](./CLAUDE.md) · [COMPONENT.md](./COMPONENT.md) (UI components catalog) · [DESIGN.md](./DESIGN.md) · [STACK.md](./STACK.md)
+> Companion docs: [CLAUDE.md](./CLAUDE.md) · [COMPONENT.md](./COMPONENT.md) (UI components catalog) · [DESIGN.md](./DESIGN.md) · [STACK.md](./STACK.md) · [TESTING.md](./TESTING.md) · [DEPLOYMENT.md](./DEPLOYMENT.md)
 
 ## Where to add what
 
@@ -16,7 +16,7 @@
 | Permission entry | `src/lib/constants/permissions.ts` | Add to `DEFAULT_PERMISSIONS` and `ROLE_DEFINITIONS` |
 | Sidebar nav item | `src/lib/sidebar-nav.ts` | Configure label, icon, route, permission |
 | New protected page | `src/app/(platform)/<route>/page.tsx` | Wire to sidebar nav above |
-| New public page | `src/app/(auth)/<route>/page.tsx` | Add to middleware allow-list if needed |
+| New public page | `src/app/(auth)/<route>/page.tsx` | Add to `PUBLIC_ROUTES` in `src/lib/supabase/middleware.ts` (called by `src/proxy.ts`) |
 | New UI primitive | `src/components/ui/` (shadcn) or `src/components/reui/` (ReUI) | Don't edit existing primitives. Add entry to `COMPONENT.md` |
 | Generic app component | `src/components/custom/` | e.g., KpiCard, PageHeader. Add entry to `COMPONENT.md` |
 | Layout chrome | `src/components/layout/` | e.g., AppSidebar, AppHeader. Add entry to `COMPONENT.md` |
@@ -27,6 +27,7 @@
 
 ```
 src/
+├── proxy.ts                          # Next.js 16 proxy (was middleware.ts): calls updateSession() on every request; must stay in src/
 ├── app/
 │   ├── layout.tsx                    # Root: ThemeProvider → ReactQueryProvider → TooltipProvider
 │   ├── page.tsx                      # Server Component: session check → redirect
@@ -91,6 +92,16 @@ prisma/
 └── seed.ts                           # Minimal seed (1 org + admin user + 4 roles)
 ```
 
+```
+(repo root)
+├── .claude/settings.json             # Claude Code permissions (allow npm/git/gh, deny .env reads, rm -rf, force push)
+├── .claude/skills/                   # update-codemap, update-component
+├── .github/workflows/                # cliq-notify.yml (CI is still a TODO; see DEPLOYMENT.md)
+├── public/                           # Static files; Storybook builds into public/storybook/ (gitignored)
+├── AGENTS.md                         # Next.js agent rules, written by `next dev`; keep it committed
+└── CHANGELOG.md · TESTING.md · DEPLOYMENT.md
+```
+
 ## Architecture: three-layer (Services → Actions → UI)
 
 ```
@@ -124,7 +135,7 @@ Prisma Client → PostgreSQL
 1. **Login** — `supabase.auth.signInWithPassword()` → redirect `/dashboard`
 2. **Register** — form → `commitRegistration()` server action → creates org + user + 4 roles atomically → signIn → redirect `/dashboard`
 3. **Forgot password** — `resetPasswordForEmail()` → email link → `/reset-password`
-4. **Middleware** — `updateSession()` refreshes tokens, guards protected routes
+4. **Proxy** — `src/proxy.ts` calls `updateSession()`, which refreshes tokens and redirects signed-out visitors to `/login`
 
 ## Database
 
