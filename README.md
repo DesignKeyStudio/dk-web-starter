@@ -32,6 +32,10 @@ Default seed credentials: `admin@example.com` / `AdminPass123!`
 | [COMPONENT.md](./COMPONENT.md) | Catalog of every UI component shipped with the project |
 | [CODEMAP.md](./CODEMAP.md) | Project tree, architecture, "where to add what" |
 | [STACK.md](./STACK.md) | Database, auth, framework choices captured during setup |
+| [TESTING.md](./TESTING.md) | Test suites, how to run them, test case ids |
+| [DEPLOYMENT.md](./DEPLOYMENT.md) | Hosting on Vercel + Supabase, production checklist, CI |
+| [CHANGELOG.md](./CHANGELOG.md) | What has shipped (Keep a Changelog format) |
+| [AGENTS.md](./AGENTS.md) | Next.js 16 agent rules, written and kept current by `next dev` |
 | [INSTALL.md](./INSTALL.md) | Claude Code setup playbook (read once, then delete) |
 
 After running setup, `INSTALL.md` and `_defaults/` can be deleted from your downstream project.
@@ -61,7 +65,7 @@ After running setup, `INSTALL.md` and `_defaults/` can be deleted from your down
 - Login (email + password)
 - Register (creates org + admin user in one transaction)
 - Forgot password / Reset password
-- Session management via Supabase Auth + Next.js middleware
+- Session management via Supabase Auth + Next.js proxy (`src/proxy.ts`)
 - RBAC permission checks via `useAuthStore().hasPermission()`
 
 ### Platform shell
@@ -120,8 +124,9 @@ Document any brand rules in [DESIGN.md](./DESIGN.md) so the rest of the codebase
 npm run dev           # Dev server (Turbopack)
 npm run build         # Production build
 npm run lint          # ESLint
+npm run typecheck     # next typegen + tsc --noEmit
 npm run storybook     # Storybook on port 6006
-npm run test          # Vitest integration tests
+npm run test          # Vitest unit + integration tests
 npx prisma db seed    # Seed demo org + admin user
 npx prisma studio     # Visual DB browser
 ```
@@ -144,8 +149,8 @@ Both `.env.local` and `prisma/.env` need these values (Prisma reads from `prisma
 
 ## Verification checklist
 
-1. `npm run build` passes with zero errors
-2. Login → `/dashboard` shows data from PostgreSQL
+1. `npm run typecheck` and `npm run build` pass with zero errors
+2. Signed out, `/dashboard` redirects to `/login`; after login, `/dashboard` shows data from PostgreSQL
 3. Register → creates org + user + 4 roles in one DB transaction
 4. Settings pages all functional
 5. Theme toggle persists across page refreshes

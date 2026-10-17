@@ -13,7 +13,7 @@ const preview: Preview = {
       test: 'todo',
     },
     viewport: {
-      viewports: {
+      options: {
         mobile: { name: 'Mobile', styles: { width: '375px', height: '812px' } },
         tablet: { name: 'Tablet', styles: { width: '768px', height: '1024px' } },
         desktop: { name: 'Desktop', styles: { width: '1440px', height: '900px' } },

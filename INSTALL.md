@@ -95,8 +95,9 @@ Replace `{{PLACEHOLDERS}}` across files using the interview answers.
 | `src/types/index.ts` | Comments referencing Launchpad/WebTemplate → `{{PROJECT_NAME}}` |
 | `.env.example` | Top comment / project label updates |
 | `README.md` | Title `dk-web-starter` → `{{PROJECT_SLUG}}`; replace marketing intro to reflect this is the downstream project (or leave with note that user should customize) |
+| `CHANGELOG.md` | Replace the starter's entries with an empty `## [Unreleased]` section for the new project |
 
-**Do not edit `CODEMAP.md` or `COMPONENT.md` during setup.** They already describe the starter's structure accurately. They'll be updated by future code changes per the discipline rule in CLAUDE.md.
+**Do not edit `CODEMAP.md`, `COMPONENT.md`, `TESTING.md` or `DEPLOYMENT.md` during setup.** They already describe the starter's structure accurately. They'll be updated by future code changes per the discipline rule in CLAUDE.md.
 
 ---
 
@@ -239,8 +240,8 @@ If any step fails, stop and surface the full error. Don't try to silently work a
 
 ## Phase 6 — Verify
 
-1. `npm run build` — must pass with zero errors. If it fails, surface the error and stop.
-2. `npm run dev` — should boot. Tell the user to visit `http://localhost:3000`.
+1. `npm run typecheck` and `npm run build` — must pass with zero errors. If either fails, surface the error and stop.
+2. `npm run dev` — should boot. Tell the user to visit `http://localhost:3000`. Signed out, `/dashboard` must redirect to `/login`; if it renders instead, `src/proxy.ts` is not being picked up (see CLAUDE.md, Next.js 16 notes).
 3. **Auth verification varies by path:**
    - **Paths 1, 2, 3** — login with the seeded admin credentials (`prisma/seed.ts` defines the username/password — typically `admin@example.com` / `AdminPass123!`).
    - **Path 4** — visiting `/` should redirect to `/dashboard` with the mocked demo user already "logged in" — no login form interaction needed.

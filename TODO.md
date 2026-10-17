@@ -12,7 +12,7 @@ Prioritized action list derived from [`REVIEW-eyris-comparison.md`](./REVIEW-eyr
 
 ## P0 — Security exploits (block production)
 
-- [ ] **[BLOCKER][EXPLOITABLE]** Add a server-side `requirePermission(group, action)` helper invoked at the top of every Server Action in `src/lib/actions/mutations.ts` and `src/app/actions/auth.ts`. _Right now RBAC is enforced client-side only — a Viewer-role user can call `assignUserRole({ userId: self, roleId: <Admin id> })` from the browser console and escalate. This single fix neutralizes ~60% of security findings._  H · M · A-B
+- [ ] **[BLOCKER][EXPLOITABLE]** Add a server-side `requirePermission(group, action)` helper invoked at the top of every Server Action in `src/lib/actions/mutations.ts` and `src/app/actions/auth.ts`. _Right now RBAC is enforced client-side only — a Viewer-role user can call `assignUserRole({ userId: self, roleId: <Admin id> })` from the browser console and escalate. This single fix neutralizes ~60% of security findings._ Reference: BuildingLocation keeps every rule in one `src/lib/permissions.ts` (`can`) that services enforce and the UI only reads to show or hide controls.  H · M · A-B
 - [ ] **[BLOCKER][EXPLOITABLE]** Sign the `lp-org-id` cookie + verify it belongs to the authenticated user on read, OR drop the 24h cache entirely. _An attacker with their own valid session can edit the cookie to a victim org's UUID and read/write that org's data via any Server Action._  H · S · R6 / A-B
 - [ ] **[BLOCKER][EXPLOITABLE]** Validate the `next` query parameter at `src/app/auth/callback/route.ts:7`. Reject anything that isn't a single-leading-`/` same-origin path (`!next.startsWith("/") || next.startsWith("//") || next.startsWith("/\\")`). _Open-redirect phishing pivot from any reset-password email._  H · S · A-A / A-B
 - [ ] **[BLOCKER][EXPLOITABLE]** Constrain `UserProfile.homePage` to an allowlist (enum or set) at the schema AND in `updateUserProfile`. _Currently a user can set their own `homePage = "https://evil.com"`; visiting `/` redirects there via `redirect(profile.homePage)`. Second open-redirect path._  H · S · A-B
@@ -31,7 +31,7 @@ Prioritized action list derived from [`REVIEW-eyris-comparison.md`](./REVIEW-eyr
 - [ ] Add `SECURITY.md` with disclosure contact and process.  M · S · R6
 - [ ] Add CSP + security headers to `next.config.ts` (HSTS, X-Content-Type-Options, Referrer-Policy, default-src).  M · S · R6 / A-E
 - [ ] Replace the prefix-match in `src/lib/supabase/middleware.ts:54` (`PUBLIC_ROUTES.some(r => pathname.startsWith(r))`) with exact-match. _`/login` matches `/login-backdoor`._  M · S · A-B
-- [ ] Generalize/escape the `middleware.ts` matcher: don't exclude `.json|.txt|/storybook` blanket — any future `/api/admin.json` ships unauthenticated.  M · S · A-B
+- [ ] Generalize/escape the `src/proxy.ts` matcher: don't exclude `.json|.txt|/storybook` blanket — any future `/api/admin.json` ships unauthenticated.  M · S · A-B
 - [ ] Add rate limiting (Upstash `@upstash/ratelimit` or Arcjet) on `/login`, `/register`, `/forgot-password`, `/auth/callback`. _Currently `commitRegistration` spam can exhaust the Prisma connection pool via 30s `$transaction` holds._  H · S · A-B / A-E / A-L
 - [ ] Move `AdminPass123!` out of `prisma/seed.ts` to env (`SEED_ADMIN_PASSWORD`); fail loudly in production.  M · S · A-B / A-H
 - [ ] Add `secure: process.env.NODE_ENV === "production"` to the `lp-org-id` cookie (even after signing).  L · S · A-B
@@ -119,7 +119,7 @@ Prioritized action list derived from [`REVIEW-eyris-comparison.md`](./REVIEW-eyr
 - [ ] Replace `as never` casts at `user-service.ts:160-161` with safer `parseActivityAction(value): ActivityAction | null` helpers, or import Prisma enums directly and switch exhaustively.  M · S · A-J
 - [ ] Narrow `mock-client.ts` return type from `as unknown as SupabaseClient` to a `MinimalSupabaseClient` interface listing only the auth methods actually used. _Currently any code calling `.from`, `.storage`, `.realtime`, `.rpc()` in prototype mode crashes with no type warning._  M · S · A-J
 - [ ] Convert `commitRegistration` return type to a discriminated union: `{ success: true } | { success: false; error: string }`. _Currently `error` could be present when `success: true`._  M · S · A-J
-- [ ] Add `process.env` validation via `@t3-oss/env-nextjs` Zod schema, imported into `next.config.ts` so missing/invalid vars fail at build. Replace non-null assertions `process.env.X!` in `middleware.ts:31-32` with the validated import.  H · S · A-E / A-L
+- [ ] Add `process.env` validation via `@t3-oss/env-nextjs` Zod schema, imported into `next.config.ts` so missing/invalid vars fail at build. Replace non-null assertions `process.env.X!` in `src/lib/supabase/middleware.ts:31-32` with the validated import.  H · S · A-E / A-L
 - [ ] Add branded ID types (`UserId`, `OrganizationId`, `RoleId`, `DepartmentId`) in `src/types/`. Cheap to add; prevents many cross-field-shape bugs.  M · M · R10 / A-J
 - [ ] Constrain `DataTable<TData>` to `TData extends object` to prevent `data: null` from compiling.  L · S · A-J
 
@@ -172,12 +172,12 @@ Prioritized action list derived from [`REVIEW-eyris-comparison.md`](./REVIEW-eyr
 - [ ] Add Husky + lint-staged with a pre-commit hook (`eslint` + `prettier --check` on staged files).  M · S · R5
 - [ ] Add `tsx` to `devDependencies` so `prisma db seed` doesn't hit npx every time.  M · S · R5
 - [ ] Add `prisma format` and `prisma validate` npm scripts.  L · S · R5
-- [ ] Add `typecheck` and `check` aggregate scripts:
+- [ ] Add a `check` aggregate script. _`typecheck` landed as `next typegen && tsc --noEmit`: on Next 16, `tsc` alone misses the generated route types._
   ```json
-  "typecheck": "tsc --noEmit",
   "check": "npm run lint && npm run typecheck && npm run test"
   ```
   M · S · R5
+- [ ] Fix the 22 existing ESLint errors so `npm run lint` can gate CI: 12 `react-hooks/set-state-in-effect`, 5 `preserve-manual-memoization`, 3 `refs`, 1 `purity`, 1 `prefer-const`, in `src/components/reui/` (stepper, filters, date-selector, data-grid), `ui/sidebar.tsx` and `layout/app-header.tsx`. Also decide on the new `@next/next/no-location-assign-relative-destination` warning for the full-reload sign-out in `src/lib/header/header-auth-actions.ts`. _`next build` no longer runs lint on Next 16, so these do not show up in the build._  H · S
 - [ ] Split the `build` script. Default: `prisma generate && next build`. Add `build:full` that also runs Storybook.  M · S · R5/R8
 - [ ] Add a 5-line "manual quickstart" block to `README.md` for developers not using Claude Code.  M · S · R5
 - [ ] Add `LICENSE`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `.github/PULL_REQUEST_TEMPLATE.md`.  L · S · R5
@@ -185,7 +185,7 @@ Prioritized action list derived from [`REVIEW-eyris-comparison.md`](./REVIEW-eyr
 ## P2 — Dependencies (from addendum)
 
 - [ ] Downgrade `vite` from `^8.0.1` to `^7.x` (Vite 8 is pre-stable; Storybook 10's `@storybook/nextjs-vite` peer-targets Vite 7). Or remove the direct dep — it's transitive via Storybook + Vitest.  H · S · A-D
-- [ ] Remove `@storybook/addon-viewport ^9.0.8` (mismatched with Storybook 10; viewport is built-in in SB10).  H · S · A-D
+- [x] Remove `@storybook/addon-viewport ^9.0.8` (mismatched with Storybook 10; viewport is built-in in SB10). _Done: it made every Storybook test file fail to load; the preview's viewports moved to `parameters.viewport.options`._  H · S · A-D
 - [ ] Loosen exact-pinned `react`/`react-dom` from `19.2.3` to `^19.2.3` for patch updates.  M · S · A-D
 - [ ] Remove `styled-jsx ^5.1.7` from `dependencies` — Next bundles its own; explicit dep causes version skew with Next's internal `5.1.6`.  M · S · A-D
 - [ ] Add `tsx ^4` to `devDependencies` — `prisma db seed` calls `npx tsx prisma/seed.ts`; npx fetches it at runtime today (slow/brittle in CI).  M · S · A-D / R5
@@ -222,15 +222,15 @@ Prioritized action list derived from [`REVIEW-eyris-comparison.md`](./REVIEW-eyr
   - **E2E** — sign-in → reach `/dashboard` → see KPIs (Playwright)
   
   H · M · R13
-- [ ] Add `.github/workflows/ci.yml` running lint + typecheck + test + build on PR.  H · S · R14
-- [ ] Add `.github/workflows/deploy.yml` for production deploy (Vercel or chosen target).  M · M · R14
+- [ ] Add `.github/workflows/ci.yml` running lint + typecheck + test + build on PR. Reference: BuildingLocation's `ci.yml` (checks job, then Playwright with the report uploaded on failure, then deploy only after a green push to `main`; runner pinned to `ubuntu-24.04` because Playwright's `--with-deps` can lag a new `ubuntu-latest`). Blocked on the lint item above.  H · S · R14
+- [ ] Add `.github/workflows/deploy.yml` for production deploy (Vercel or chosen target). DEPLOYMENT.md describes the Vercel + Supabase path; with Vercel's Git integration a workflow may not be needed beyond running migrations.  M · M · R14
 - [ ] Add an a11y test gate (axe-core against built Storybook).  M · S · R7
 - [ ] Add a `docs:audit` script that compares `CODEMAP.md` against the filesystem and exits 1 on drift.  M · M · R9
 
 ## P2 — Error handling & observability
 
 - [ ] Add `error.tsx` at `(platform)/` and `(auth)/`.  M · S · R12
-- [ ] Define typed error classes (`AuthError`, `PermissionError`, `NotFoundError`) and have Server Actions throw them.  M · S · R12
+- [ ] Define typed error classes (`AuthError`, `PermissionError`, `NotFoundError`) and have Server Actions throw them. Reference: BuildingLocation's services throw `ForbiddenError` / `NotFoundError` / `ValidationError` and one `runAction()` (`src/lib/actions/helpers.ts`) turns them into `{ ok: false, error }`.  M · S · R12
 - [ ] Wire a global React Query error handler that surfaces Sonner toasts.  M · S · R12
 - [ ] Add `/api/health` returning DB + auth ping status.  M · S · R12
 - [ ] Log failed sign-in and denied permission attempts to `activityLog`.  M · S · R6/R12
@@ -268,6 +268,7 @@ Prioritized action list derived from [`REVIEW-eyris-comparison.md`](./REVIEW-eyr
   - File upload via Supabase Storage
   - Stripe billing scaffold (Checkout + Customer Portal stubs)
 - [ ] Decide on background job system (Inngest / Trigger.dev / BullMQ) or document "deferred".  R15
+- [ ] **Decision needed**: a hosted demo mode for products sold as DesignKey solutions. What made BuildingLocation sellable: one-click "Sign in as …" buttons per role for the seeded demo accounts (they only work while the demo seed is present, so a client install cannot use them), realistic seed data reloaded every night by a scheduled workflow, and a `demo-<product>.designkey.studio` address. Keep it separate from prototype mode, which stays blocked in production (P0 above). Reference: BuildingLocation `demoLoginAction` in `src/lib/actions/auth.ts` and `.github/workflows/reset-demo.yml`.  M · M
 - [ ] Wire a real-time notification badge pattern (Supabase Realtime or SSE polling).  R15
 - [ ] Document `Settings → Billing` and `Settings → Integrations` scope or scaffold concrete examples.  R15
 
@@ -293,7 +294,7 @@ Prioritized action list derived from [`REVIEW-eyris-comparison.md`](./REVIEW-eyr
 - [ ] Document Prisma enum snake_case convention in CODEMAP.md (or rename to PascalCase if not intentional).  L · S · R10
 - [ ] Cross-link DESIGN.md → COMPONENT.md → CODEMAP.md → STACK.md more explicitly so the agent loads them in order.  L · S · R2
 - [ ] Add `git mv` examples to CODEMAP.md for "renaming a service/action/hook" so the agent knows to update both files + CODEMAP in one commit.  L · S · R2
-- [ ] Document `npm run test` / `npm run test:watch` / `npm run setup` in CLAUDE.md.  L · S · A-K
+- [ ] Document `npm run setup` in CLAUDE.md once `setup.sh` exists (`test` and `test:watch` are documented).  L · S · A-K
 - [ ] Add a Windows-flavored variant of INSTALL.md Phase 8's `mv` example (use `Rename-Item` or `move`).  L · S · A-K
 - [ ] CODEMAP.md: include `prisma.ts`, `csv-utils.ts`, `platform-layout-bootstrap.ts` in the `src/lib/` tree.  L · S · A-K
 
