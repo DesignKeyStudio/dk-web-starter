@@ -12,6 +12,10 @@ if [ "$NODE_MAJOR" -lt 20 ] || ([ "$NODE_MAJOR" -eq 20 ] && [ "$NODE_MINOR" -lt 
   exit 0
 fi
 
+# Remove the previous build first: Storybook copies public/ (its static dir) into the
+# new build, so a leftover public/storybook would end up nested inside it.
+rm -rf public/storybook
+
 # Build
 npx storybook build
 
@@ -21,7 +25,6 @@ for file in storybook-static/index.html storybook-static/iframe.html; do
 done
 
 # Copy to public
-rm -rf public/storybook
 cp -r storybook-static public/storybook
 rm -rf storybook-static
 
